@@ -1,0 +1,8 @@
+**/__pycache__
+/.vscode
+#########
+*.ass
+*.mp4
+*.txt
+*.png
+!requirements.txt
