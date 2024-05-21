@@ -8,6 +8,7 @@ from src.ass_part import script_info, garbage, style, event
 ASS_PATH = config.get("File Path", "ASS_PATH")
 TXT_PATH = config.get("File Path", "TXT_PATH")
 
+
 def generate_ass(filename: str):
     content = script_info + "\n" + garbage + "\n" + style + "\n" + event
     for dial in extract(filename):
@@ -22,7 +23,8 @@ def generate_ass(filename: str):
         print(f"{filename} convert failed. Info: {e}")
         return
 
-def generate_txt(filename: str):
+
+def extract_txt(filename: str):
     content = ""
     for dial in extract(filename):
         dial_event = AssEvents()
@@ -39,8 +41,9 @@ def generate_txt(filename: str):
         print(f"Filed to export txt form {filename}. Info: {e}")
         return
 
+
 if __name__ == "__main__":
-    for filepath,dirnames,filenames in os.walk(TXT_PATH):
+    for filepath, dirnames, filenames in os.walk(TXT_PATH):
         for filename in filenames:
             # if "dear" in filename or "unit" in filename:
             #     generate_txt(filename)

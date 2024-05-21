@@ -1,7 +1,6 @@
 from src.adv_text import *
 from src.read_ini import config
 
-_KEY_NARRATION = config.get("Text Key", "KEY_NARRATION")
 _player_name = config.get("Info", "player_name")
 
 
@@ -32,19 +31,19 @@ class AssEvents(object):
         self.Effect = Effect
         self.Text = Text
 
-    def from_dialogue(self, content: str) -> None:
-        self.Start = to_time(get_clip(content)["_startTime"])
-        self.Duration = get_clip(content)["_duration"]
-        self.End = end_time(get_clip(content)["_startTime"], get_clip(content)["_duration"])
-        self.Style = "GakuMas Normal"
-        if _KEY_NARRATION in content:
-            self.Name = ""
+    def from_dialogue(self, adv_line: str) -> None:
+        self.Start = to_time(get_clip(adv_line).get("_startTime"))
+        self.Duration = get_clip(adv_line).get("_duration")
+        self.End = end_time(get_clip(adv_line).get("_startTime"), self.Duration)
+        if "choicegroup" in adv_line:
+            self.Style = "学偶点按选项"
         else:
-            if get_name(content) == "{user}":
-                self.Name = _player_name
-            else:
-                self.Name = get_name(content)
-        self.Text = get_text(content)
+            self.Style = "学偶竖屏剧情"
+        if get_name(adv_line) == "{user}":
+            self.Name = _player_name
+        else:
+            self.Name = get_name(adv_line)
+        self.Text = get_text(adv_line)
 
     def echo_dialogue(self) -> str:
         dialogue = "Dialogue: %d,%s,%s,%s,%s,%d,%d,%d,%s,%s" % (
