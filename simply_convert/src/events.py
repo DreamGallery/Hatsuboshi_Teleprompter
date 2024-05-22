@@ -36,9 +36,9 @@ class AssEvents(object):
         self.Duration = get_clip(adv_line).get("_duration")
         self.End = end_time(get_clip(adv_line).get("_startTime"), self.Duration)
         if "choicegroup" in adv_line:
-            self.Style = "学偶点按选项"
+            self.Style = "GakuMas Choices"
         else:
-            self.Style = "学偶竖屏剧情"
+            self.Style = "GakuMas Vertical"
         if get_name(adv_line) == "{user}":
             self.Name = _player_name
         else:

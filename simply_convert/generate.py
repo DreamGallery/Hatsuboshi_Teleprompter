@@ -45,7 +45,6 @@ def extract_txt(filename: str):
 if __name__ == "__main__":
     for filepath, dirnames, filenames in os.walk(TXT_PATH):
         for filename in filenames:
-            # if "dear" in filename or "unit" in filename:
-            #     generate_txt(filename)
             if filename.endswith(".txt"):
                 generate_ass(filename)
+                extract_txt(filename)
