@@ -1,7 +1,3 @@
-import json
-from src.read_ini import config
-
-
 class AssStyles(object):
     def __init__(
         self,
@@ -88,6 +84,3 @@ class AssStyles(object):
             format = format + f"\u0020{attribute},"
         format = format[:-1]
         return format
-
-
-style_1 = AssStyles(*json.loads(config.get("ASS Style", "style_1")))

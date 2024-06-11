@@ -1,5 +1,6 @@
-from src.styles import *
-from src.events import AssEvents
+from src.config import style_1 as _style_1
+from src.ass_styles import AssStyles
+from src.ass_events import AssEvents
 
 
 script_info = "\
@@ -30,7 +31,7 @@ Video Position: \n\
 style = f"\
 [V4+ Styles]\n\
 {AssStyles.echo_format()}\n\
-{style_1.echo()}\n\
+{AssStyles(*_style_1).echo()}\n\
 "
 
 event = f"\
