@@ -1,3 +1,4 @@
+import re
 import sys
 import json
 from src.read_ini import config
@@ -23,7 +24,7 @@ def end_time(startTime: float, duration: float) -> str:
 
 
 def adv_common(adv_line: str):
-    content = adv_line[1:-1].split(" ")
+    content = re.sub(r"<.*?>", "", adv_line[1:-1]).split(" ")
     category_key = content.pop(0)
     new_content = []
     for item in content:

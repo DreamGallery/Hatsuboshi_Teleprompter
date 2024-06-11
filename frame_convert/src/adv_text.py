@@ -8,7 +8,7 @@ from src.config import (
 
 
 def adv_subtitle(adv_line: str) -> dict:
-    content = adv_line[1:-1].split(" ")
+    content = re.sub(r"<.*?>", "", adv_line[1:-1]).split(" ")
     category_key = content.pop(0)
     new_content = []
     for item in content:
@@ -56,8 +56,7 @@ def get_name(adv_line: str) -> str:
 def get_text(adv_line: str) -> str:
     subtitle_line = adv_subtitle(adv_line)
     category = get_category(adv_line)
-    origin_text = subtitle_line.get(category, {}).get("text", "")
-    text = re.sub(r"<.*?>", "", origin_text)
+    text = subtitle_line.get(category, {}).get("text", "")
     if "{user}" in text:
         text = text.replace("{user}", _player)
     return text

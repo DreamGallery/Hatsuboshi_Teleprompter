@@ -42,8 +42,8 @@ Adjust the appropriate threshold is very helpful to the running of this tool.<br
 Maybe sometimes you need to increase the threshold instead of decreasing it.<br />
 
 ## How to get the adv files
-You can use [DreamGallery/HoshimiToolkit](https://github.com/DreamGallery/HoshimiToolkit) to get them.  
-Folked from an Idoly Pride tool [MalitsPlus/HoshimiToolkit](https://github.com/MalitsPlus/HoshimiToolkit)
+You can get them from here [Campus-adv-txts](https://github.com/DreamGallery/Campus-adv-txts).  
+Or just use the auto generated subtitles here [Campus-adv-ass](https://github.com/DreamGallery/Campus-adv-ass).
 
 ## Some translated video
 You can find some game story videos with Chinese subtitles here [学园偶像大师同好会](https://space.bilibili.com/2546078)
