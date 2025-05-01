@@ -1,45 +1,28 @@
 # Hatsuboshi_Teleprompter
 Subtitle tool for「学園アイドルマスター」  
-1. Convert `adv_xxx_..._xxx.txt` to Aegisub subtile file.
-2. Genarated text image based on the adv files, use `OpenCV` to match them with game screen and correct the subtitle timeline.  
-(developing)
+Convert `adv_xxx_..._xxx.txt` to Aegisub subtile file and CSV file for [imas_tools](https://github.com/imas-tools)'s localization project .
 
 ## Usage
 
-### Simply convert
-Put your adv file in the `adv/txt` folder and run with
+Put your adv files in the `adv/txt` folder </br>
+run
+
 ```
-python generate.py
+python generate_ass.py
 ```
-You can put a batch of files at the same time and it will convert them at once.  
+to generate subtitle files </br>
+
+OR
+```
+python generate_csv.py
+```
+to generate CSV files
+
+Feel free to put a batch of files at the same time and it will convert them at once.  
 
 **Notice:**  
 The subtitle converted from adv file may need you to move them in sections according to the situation.  
-And the game also have some choices that you will need to check them and the diffenence scenarios that due to your choices. 
-
-### Frame convert
-Only for `初星コミュ`, edit the `config.ini` first.<br />
-Put recorded video in `video` folder and the recommended resolution is `[1920x1080]`, or you can change the `[Font Config]` in `config.ini` to fit your video (compare in PS is a good idea).<br />
-If your resolution ratio is not `16:9`, you may also have to modify the cutting area of frames [here](frame_convert/src/frame_process.py).
-#### Install requirements
-```
-pip install -r requirements.txt
-```
-**Check and edit adv file**
-
-Extract subtitle line from `adv` file.
-```
-python adv_extract.py
-```
-Go to check the file and delete choices (if so) those you didn't select in your video. <br />
-
-**Start match**
-```
-python main.py
-```
-
-Adjust the appropriate threshold is very helpful to the running of this tool.<br />
-Maybe sometimes you need to increase the threshold instead of decreasing it.<br />
+And the game also have some choices that you will need to check them and the difference scenarios that due to your choices. 
 
 ## How to get the adv files
 You can get them from here [Campus-adv-txts](https://github.com/DreamGallery/Campus-adv-txts).  
