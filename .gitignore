@@ -131,6 +131,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Mac filesystem
+.DS_Store
+
 # Costum files
 adv/txt/*
 adv/ass/*

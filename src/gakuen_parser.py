@@ -79,7 +79,7 @@ def encode_message_kv(k, v):
             raise ValueError()
         return v
     if type(v) is list:
-        return " ".join([encode_message_kv(k, w) for w in v])  # type: ignore
+        return " ".join([encode_message_kv(k, w) for w in v])
     if type(v) is str:
         return f"{k}={v}"
     if type(v) is not dict:

@@ -16,7 +16,6 @@ class StoryCsv:
             csv_text = csv_text.strip().split("\n")
 
         reader = csv.DictReader(csv_text)
-        # remove the starting line
         if reader.fieldnames != ["id", "name", "text", "trans"]:
             raise ValueError(f"First line of csv should be 'id,name,text,trans'")
 
@@ -57,7 +56,6 @@ class StoryCsv:
 
             writer = csv.DictWriter(output, fieldnames=["id", "name", "text", "trans"])
 
-            # write header
             writer.writerow(
                 {"id": "id", "name": "name", "text": "text", "trans": "trans"}
             )
