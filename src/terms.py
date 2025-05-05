@@ -135,21 +135,21 @@ terms = [
     {
         "src": "藍井撫子",
         "dst": "蓝井抚子",
-        "info": "初星学园对手学校极月学园偶像科一年级女生",
+        "info": "校极月学园偶像科一年级女生",
         "enable": True,
         "always_include": True
     },
     {
         "src": "白草四音",
         "dst": "白草四音",
-        "info": "初星学园对手学校极月学园偶像科一年级女生，白草月花的妹妹",
+        "info": "极月学园偶像科一年级女生，白草月花的妹妹",
         "enable": True,
         "always_include": True
     },
     {
         "src": "白草月花",
         "dst": "白草月花",
-        "info": "初星学园对手学校极月学园偶像科三年级女生，白草四音的姐姐",
+        "info": "极月学园偶像科三年级女生，白草四音的姐姐",
         "enable": True,
         "always_include": True
     },
@@ -352,14 +352,14 @@ terms = [
     {
         "src": "『",
         "dst": "『",
-        "info": "作为引号时保留不变",
+        "info": "作为书名号和引号时都保留不变",
         "enable": True,
         "always_include": False
     },
     {
         "src": "』",
         "dst": "』",
-        "info": "作为引号时保留不变",
+        "info": "作为书名号和引号时都保留不变",
         "enable": True,
         "always_include": False
     },
@@ -376,5 +376,5 @@ terms = [
         "info": "NEXT IDOL AUDITION的缩写，公演名称，保留不处理",
         "enable": True,
         "always_include": False
-    },
+    }
 ]

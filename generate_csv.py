@@ -79,7 +79,7 @@ def generate_csv(
             )
             try:
                 translations = translator.batch_translate(
-                    texts_to_translate, chunk_size
+                    texts_to_translate, filename, chunk_size
                 )
                 print(f"{progress_prefix}Translation of {filename} completed")
             except Exception as e:

@@ -65,15 +65,18 @@ class TranslationService:
 
         user_content = (
             f"根据以下术语表（可以为空）：\n{terms_str}\n\n"
-            f"将下面的日文文本根据对应关系和备注翻译成中文：{text}\n"
+            f"将日文文本根据对应关系和备注翻译成中文\n"
             f"注意：不要翻译文本中的英文部分, 不要随意修改文本中的标点符号\n"
+            f"重要：必须保留原文中的所有可见换行符\\n，不要丢弃或修改它们\n\n"
+            f"日文文本如下：\n\n{text}"
         )
 
         return [
             {
                 "role": "system",
                 "content": "你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，"
-                "并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。",
+                "并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。"
+                "你必须保留原文中的所有格式标记，特别是换行符\\n。",
             },
             {"role": "user", "content": user_content},
         ]
@@ -91,11 +94,12 @@ class TranslationService:
 
         user_content = (
             f"根据以下术语表（可以为空）：\n{terms_str}\n\n"
-            f"请将下面的多个日文文本翻译成中文。每个文本都有一个索引编号。\n"
+            f"将多个日文文本翻译成中文。每个文本都有一个索引编号。\n"
             f"请以相同的格式返回翻译结果，确保保留索引编号，格式为：[索引编号] 翻译后的文本\n"
-            f"非常重要：必须翻译所有文本，并确保每个翻译结果都包含对应的索引编号\n\n"
-            f"{all_texts}\n"
             f"注意：不要翻译文本中的英文部分, 不要随意修改文本中的标点符号\n"
+            f"非常重要：必须翻译所有文本，并确保每个翻译结果都包含对应的索引编号\n"
+            f"非常重要：必须保留原文中的所有可见换行符\\n，不要丢弃或修改它们\n\n"
+            f"日文文本如下：\n\n{all_texts}"
         )
 
         return [
@@ -104,7 +108,8 @@ class TranslationService:
                 "content": "你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，"
                 "并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。"
                 "你将收到多个标记了索引编号的文本，请翻译每一个并保持相同的索引编号格式。"
-                "必须确保翻译所有文本，并在每个翻译前标明正确的索引编号。",
+                "必须确保翻译所有文本，并在每个翻译前标明正确的索引编号。"
+                "你必须保留原文中的所有格式标记，特别是换行符\\n。",
             },
             {"role": "user", "content": user_content},
         ]
@@ -138,6 +143,15 @@ class TranslationService:
         cleaned = text.replace("\n", "\\n")
         cleaned = cleaned.replace("...", "…")
         cleaned = cleaned.replace("―", "—")
+        cleaned = cleaned.replace("《", "『")
+        cleaned = cleaned.replace("》", "』")
+        cleaned = cleaned.replace("<r=", "<r\\=")
+        while True:
+            cleaned_old = cleaned
+            cleaned = re.sub(r'\\n\s*\\n', '\\n', cleaned)
+            if len(cleaned) == len(cleaned_old):
+                break
+        cleaned = re.sub(r'\\n\s*$', '', cleaned)
         cleaned = re.sub(r'\s+', ' ', cleaned)
         cleaned = cleaned.strip()
         return cleaned
@@ -145,7 +159,7 @@ class TranslationService:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     )
-    def translate(self, text: str) -> str:
+    def translate(self, text: str, file_name: str) -> str:
         if not self.api_base or not self.api_key:
             raise ValueError(
                 "OPENAI_API_BASE and OPENAI_API_KEY must be set in environment variables"
@@ -180,13 +194,13 @@ class TranslationService:
             return cleaned_translation
 
         except Exception as e:
-            raise Exception(f"Translation API request failed: {str(e)}")
+            raise Exception(f"File: {file_name}. Translation API request failed: {str(e)}")
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     )
     def batch_translate(
-        self, texts: List[Tuple[str, int]], chunk_size: int = 20
+        self, texts: List[Tuple[str, int]], file_name: str, chunk_size: int = 20
     ) -> Dict[int, str]:
         if not self.api_base or not self.api_key:
             raise ValueError(
@@ -227,7 +241,7 @@ class TranslationService:
                             break
 
                 if len(missed_indices) > len(chunk_indices) / 4 or has_quality_issues:
-                    print(f"Missing a lot of indices or detected quality issues, retrying the whole chunk...")
+                    print(f"File: {file_name}. Missing a lot of indices or detected quality issues, retrying the whole chunk...")
                     retry_chunk = True
                     for idx in translated_indices:
                         if idx in result_map:
@@ -248,30 +262,30 @@ class TranslationService:
                 
                 if missed_indices and not retry_chunk:
                     print(
-                        f"Missing translations for {len(missed_indices)} texts, retrying individually..."
+                        f"File: {file_name}. Missing translations for {len(missed_indices)} texts, retrying individually..."
                     )
                     self._retry_missed_translations(
-                        missed_indices, orig_text_map, result_map
+                        missed_indices, orig_text_map, result_map, file_name
                     )
 
             except Exception as e:
-                print(f"Batch translation error: {str(e)}")
+                print(f"File: {file_name}. Batch translation error: {str(e)}")
                 missed_indices = chunk_indices
                 self._retry_missed_translations(
-                    missed_indices, orig_text_map, result_map
+                    missed_indices, orig_text_map, result_map, file_name
                 )
 
         final_missed = all_indices - set(result_map.keys())
         if final_missed:
             print(
-                f"Final check: still missing translations for {len(final_missed)} texts, retrying..."
+                f"Final check ({file_name}): still missing translations for {len(final_missed)} texts, retrying..."
             )
-            self._retry_missed_translations(final_missed, orig_text_map, result_map)
+            self._retry_missed_translations(final_missed, orig_text_map, result_map, file_name)
 
         for idx in all_indices:
             if idx not in result_map:
                 print(
-                    f"Warning: Failed to translate text with index {idx} after all retries"
+                    f"Warning ({file_name}): Failed to translate text with index {idx} after all retries"
                 )
                 result_map[idx] = ""
 
@@ -281,27 +295,54 @@ class TranslationService:
         self, response_text: str, result_map: Dict[int, str], orig_text_map: Dict[int, str]
     ) -> Set[int]:
         translated_indices = set()
-        current_lines = response_text.split("\n")
-
-        for line in current_lines:
-            line = line.strip()
-            if not line:
+        lines = response_text.split("\n")
+        
+        processed_lines = []
+        index_pattern = re.compile(r'\s*\[\s*(\d+)\s*\]')
+        
+        for line in lines:
+            if not line.strip():
                 continue
-
-            if line.startswith("[") and "]" in line:
+                
+            all_matches = list(index_pattern.finditer(line))
+            
+            if len(all_matches) > 1:
+                start_positions = [match.start() for match in all_matches]
+                start_positions.append(len(line))
+                
+                for i in range(len(all_matches)):
+                    start = start_positions[i]
+                    end = start_positions[i+1]
+                    processed_lines.append(line[start:end])
+            else:
+                processed_lines.append(line)
+        
+        index_pattern = re.compile(r'^\s*\[\s*(\d+)\s*\](.*)$')
+        current_idx = None
+        current_text = ""
+        
+        for line in processed_lines:
+            match = index_pattern.match(line)
+            if match:
+                if current_idx is not None and current_idx in orig_text_map:
+                    result_map[current_idx] = self._clean_translation(current_text)
+                    translated_indices.add(current_idx)
+                
                 try:
-                    idx_end = line.find("]")
-                    idx_str = line[1:idx_end].strip()
-                    idx = int(idx_str)
-                    translation = line[idx_end + 1 :].strip()
-                    cleaned_translation = self._clean_translation(translation)
-                    
-                    if idx in orig_text_map:
-                        result_map[idx] = cleaned_translation
-                        translated_indices.add(idx)
+                    current_idx = int(match.group(1))
+                    current_text = match.group(2).strip()
                 except (ValueError, IndexError):
-                    continue
-
+                    current_idx = None
+                    current_text = ""
+            elif current_idx is not None:
+                if not current_text.endswith("\\n") and not line.strip().startswith("\\n"):
+                    current_text += "\\n"
+                current_text += line.strip()
+        
+        if current_idx is not None and current_idx in orig_text_map:
+            result_map[current_idx] = self._clean_translation(current_text)
+            translated_indices.add(current_idx)
+            
         return translated_indices
 
     def _retry_missed_translations(
@@ -309,18 +350,19 @@ class TranslationService:
         missed_indices: Set[int],
         orig_text_map: Dict[int, str],
         result_map: Dict[int, str],
+        file_name: str,
         max_retries: int = 2,
     ) -> None:
         for idx in missed_indices:
             retry_count = 0
             while retry_count < max_retries and idx not in result_map:
                 try:
-                    translation = self.translate(orig_text_map[idx])
+                    translation = self.translate(orig_text_map[idx], file_name)
                     cleaned_translation = self._clean_translation(translation)
                     result_map[idx] = cleaned_translation
-                    print(f"Successfully translated index {idx} on retry")
+                    print(f"File: {file_name}. Successfully translated index {idx} on retry")
                 except Exception as e:
-                    print(f"Retry failed for index {idx}: {str(e)}")
+                    print(f"File: {file_name}. Retry failed for index {idx}: {str(e)}")
                     time.sleep(1)
 
                 retry_count += 1
