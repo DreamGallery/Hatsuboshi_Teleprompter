@@ -352,15 +352,29 @@ terms = [
     {
         "src": "『",
         "dst": "『",
-        "info": "引用某人说的话的符号，不要处理",
+        "info": "作为引号时保留不变",
         "enable": True,
         "always_include": False
     },
     {
         "src": "』",
         "dst": "』",
-        "info": "引用某人说的话的符号，不要处理",
+        "info": "作为引号时保留不变",
         "enable": True,
         "always_include": False
-    }
+    },
+    {
+        "src": "『初』",
+        "dst": "『初』",
+        "info": "定期公演名称，保留不处理",
+        "enable": True,
+        "always_include": False
+    },
+    {
+        "src": "『N.I.A』",
+        "dst": "『N.I.A』",
+        "info": "NEXT IDOL AUDITION的缩写，公演名称，保留不处理",
+        "enable": True,
+        "always_include": False
+    },
 ]

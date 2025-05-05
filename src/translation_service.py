@@ -1,9 +1,10 @@
+import re
 import os
+import time
 from dotenv import load_dotenv
 from typing import List, Dict, Optional, Tuple, Set
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
-import time
 
 
 load_dotenv()
@@ -65,6 +66,7 @@ class TranslationService:
         user_content = (
             f"根据以下术语表（可以为空）：\n{terms_str}\n\n"
             f"将下面的日文文本根据对应关系和备注翻译成中文：{text}\n"
+            f"注意：不要翻译文本中的英文部分, 不要随意修改文本中的标点符号\n"
         )
 
         return [
@@ -86,14 +88,14 @@ class TranslationService:
         all_texts = "\n\n".join(formatted_texts)
         relevant_terms = self.filter_terms_for_text(all_texts)
         terms_str = self.format_terms(relevant_terms)
-        print(terms_str)
 
         user_content = (
             f"根据以下术语表（可以为空）：\n{terms_str}\n\n"
             f"请将下面的多个日文文本翻译成中文。每个文本都有一个索引编号。\n"
             f"请以相同的格式返回翻译结果，确保保留索引编号，格式为：[索引编号] 翻译后的文本\n"
             f"非常重要：必须翻译所有文本，并确保每个翻译结果都包含对应的索引编号\n\n"
-            f"{all_texts}"
+            f"{all_texts}\n"
+            f"注意：不要翻译文本中的英文部分, 不要随意修改文本中的标点符号\n"
         )
 
         return [
@@ -106,6 +108,39 @@ class TranslationService:
             },
             {"role": "user", "content": user_content},
         ]
+
+    def _is_degenerate_translation(self, original: str, translation: str) -> bool:
+        if len(translation) > len(original) * 2:
+            words = translation.split()
+            if len(words) >= 8:
+                for i in range(len(words) - 3):
+                    pattern = " ".join(words[i:i+3])
+                    count = translation.count(pattern)
+                    if count >= 3:
+                        print(f"Translation has degenerated: '{pattern}' appears {count} times, retrying...")
+                        return True
+                
+                char_counts = {}
+                for char in translation:
+                    if char in char_counts:
+                        char_counts[char] += 1
+                    else:
+                        char_counts[char] = 1
+                
+                most_common_char = max(char_counts.items(), key=lambda x: x[1])
+                if most_common_char[1] > len(translation) * 0.3 and len(translation) > 20:
+                    print(f"Translation has degenerated: '{most_common_char[0]}' appears too often ({most_common_char[1]} times), retrying...")
+                    return True
+        
+        return False
+
+    def _clean_translation(self, text: str) -> str:
+        cleaned = text.replace("\n", "\\n")
+        cleaned = cleaned.replace("...", "…")
+        cleaned = cleaned.replace("―", "—")
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        cleaned = cleaned.strip()
+        return cleaned
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
@@ -122,13 +157,27 @@ class TranslationService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.7,
+                temperature=1.3,
                 top_p=0.95,
                 max_tokens=4096,
             )
 
             translated_text = response.choices[0].message.content.strip()
-            return translated_text
+            cleaned_translation = self._clean_translation(translated_text)
+            
+            if self._is_degenerate_translation(text, cleaned_translation):
+                messages = self.create_messages(text)
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=1,
+                    top_p=0.95,
+                    max_tokens=4096,
+                )
+                translated_text = response.choices[0].message.content.strip()
+                cleaned_translation = self._clean_translation(translated_text)
+            
+            return cleaned_translation
 
         except Exception as e:
             raise Exception(f"Translation API request failed: {str(e)}")
@@ -151,6 +200,7 @@ class TranslationService:
         for i in range(0, len(texts), chunk_size):
             chunk = texts[i : i + chunk_size]
             chunk_indices = set([idx for _, idx in chunk])
+            retry_chunk = False
 
             try:
                 messages = self.create_batch_messages(chunk)
@@ -158,18 +208,45 @@ class TranslationService:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    temperature=0.7,
+                    temperature=1.3,
                     top_p=0.95,
-                    max_tokens=4096,
+                    max_tokens=8192,
                 )
 
                 response_text = response.choices[0].message.content.strip()
                 translated_indices = self._parse_batch_response(
-                    response_text, result_map
+                    response_text, result_map, orig_text_map
                 )
                 missed_indices = chunk_indices - translated_indices
+                
+                has_quality_issues = False
+                for idx in translated_indices:
+                    if idx in orig_text_map and idx in result_map:
+                        if self._is_degenerate_translation(orig_text_map[idx], result_map[idx]):
+                            has_quality_issues = True
+                            break
 
-                if missed_indices:
+                if len(missed_indices) > len(chunk_indices) / 4 or has_quality_issues:
+                    print(f"Missing a lot of indices or detected quality issues, retrying the whole chunk...")
+                    retry_chunk = True
+                    for idx in translated_indices:
+                        if idx in result_map:
+                            del result_map[idx]
+                    messages = self.create_batch_messages(chunk)
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=1,
+                        top_p=0.95,
+                        max_tokens=8192,
+                    )
+                    response_text = response.choices[0].message.content.strip()
+                    translated_indices = self._parse_batch_response(
+                        response_text, result_map, orig_text_map
+                    )
+                    missed_indices = chunk_indices - translated_indices
+                
+                if missed_indices and not retry_chunk:
                     print(
                         f"Missing translations for {len(missed_indices)} texts, retrying individually..."
                     )
@@ -201,7 +278,7 @@ class TranslationService:
         return result_map
 
     def _parse_batch_response(
-        self, response_text: str, result_map: Dict[int, str]
+        self, response_text: str, result_map: Dict[int, str], orig_text_map: Dict[int, str]
     ) -> Set[int]:
         translated_indices = set()
         current_lines = response_text.split("\n")
@@ -217,8 +294,11 @@ class TranslationService:
                     idx_str = line[1:idx_end].strip()
                     idx = int(idx_str)
                     translation = line[idx_end + 1 :].strip()
-                    result_map[idx] = translation
-                    translated_indices.add(idx)
+                    cleaned_translation = self._clean_translation(translation)
+                    
+                    if idx in orig_text_map:
+                        result_map[idx] = cleaned_translation
+                        translated_indices.add(idx)
                 except (ValueError, IndexError):
                     continue
 
@@ -235,9 +315,9 @@ class TranslationService:
             retry_count = 0
             while retry_count < max_retries and idx not in result_map:
                 try:
-                    print(f"Retrying translation for index {idx}...")
-                    trans = self.translate(orig_text_map[idx])
-                    result_map[idx] = trans
+                    translation = self.translate(orig_text_map[idx])
+                    cleaned_translation = self._clean_translation(translation)
+                    result_map[idx] = cleaned_translation
                     print(f"Successfully translated index {idx} on retry")
                 except Exception as e:
                     print(f"Retry failed for index {idx}: {str(e)}")

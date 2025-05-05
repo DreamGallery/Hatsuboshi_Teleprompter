@@ -13,17 +13,14 @@ TXT_PATH = config.get("File Path", "TXT_PATH")
 player_name = config.get("Info", "player_name")
 
 
-def generate_csv(filename: str, chunk_size: int = 20):
+def generate_csv(
+    filename: str, chunk_size: int = 20, file_index: int = None, total_files: int = None
+):
     with open(f"{TXT_PATH}/{filename}", "r", encoding="utf8") as f:
         gakuen_txt = f.read()
         parsed_lines = parse_messages(gakuen_txt)
 
         sc_csv = StoryCsv.new_empty_csv(filename)
-        translator = TranslationService()
-        translator.translation_terms = terms
-        has_translator = (
-            hasattr(translator, "api_base") and translator.api_base is not None
-        )
         texts_to_translate: List[Tuple[str, int]] = []
         text_indices: Dict[int, Dict] = {}
 
@@ -66,21 +63,33 @@ def generate_csv(filename: str, chunk_size: int = 20):
                     )
 
         translations = {}
+        has_translator = (
+            os.getenv("OPENAI_API_BASE") is not None and os.getenv("OPENAI_API_KEY") is not None
+        )
         if has_translator and texts_to_translate:
+            translator = TranslationService()
+            translator.translation_terms = terms
+            progress_prefix = (
+                f"[{file_index}/{total_files}] "
+                if file_index is not None and total_files is not None
+                else ""
+            )
             print(
-                f"Batch translating {filename} with {len(texts_to_translate)} texts..."
+                f"{progress_prefix}Batch translating {filename} with {len(texts_to_translate)} texts..."
             )
             try:
                 translations = translator.batch_translate(
                     texts_to_translate, chunk_size
                 )
-                print(f"Translation of {filename} completed")
+                print(f"{progress_prefix}Translation of {filename} completed")
             except Exception as e:
-                print(f"Batch translation of {filename} failed: {e}")
+                print(f"{progress_prefix}Batch translation of {filename} failed: {e}")
                 translations = {idx: "" for idx, _ in texts_to_translate}
 
         for idx, meta in text_indices.items():
-            trans_text = translations.get(idx, "") if has_translator else ""
+            trans_text = (
+                translations.get(idx, "").replace('"', '') if has_translator else ""
+            )
             sc_csv.append_line(
                 {
                     "id": meta["id"],
@@ -95,11 +104,21 @@ def generate_csv(filename: str, chunk_size: int = 20):
         ) as fp:
             try:
                 fp.write(str(sc_csv))
+                progress_prefix = (
+                    f"[{file_index}/{total_files}] "
+                    if file_index is not None and total_files is not None
+                    else ""
+                )
                 print(
-                    f"{filename} has been successfully converted to {os.path.splitext(filename)[0]}.csv"
+                    f"{progress_prefix}{filename} has been successfully converted to {os.path.splitext(filename)[0]}.csv"
                 )
             except Exception as e:
-                print(f"{filename} convert failed. Info: {e}")
+                progress_prefix = (
+                    f"[{file_index}/{total_files}] "
+                    if file_index is not None and total_files is not None
+                    else ""
+                )
+                print(f"{progress_prefix}{filename} convert failed. Info: {e}")
 
     return
 
@@ -119,8 +138,10 @@ def batch_generation(max_workers: int = 5, chunk_size: int = 20):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {
-            executor.submit(generate_csv, filename, chunk_size): filename
-            for filename in files_to_process
+            executor.submit(
+                generate_csv, filename, chunk_size, i + 1, total_files
+            ): filename
+            for i, filename in enumerate(files_to_process)
         }
 
         for future in concurrent.futures.as_completed(future_to_file):
